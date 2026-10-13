@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSINT Collection</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', -apple-system, system-ui, sans-serif; }
+
+  body {
+    min-height:100vh;
+    background:#f4f6fb;
+    color:#1a2233;
+    padding:40px 20px 60px;
+    position:relative;
+  }
+
+  body::before, body::after {
+    content:"";
+    position:fixed;
+    width:400px; height:400px;
+    border-radius:50%;
+    filter:blur(120px);
+    opacity:0.35;
+    z-index:0;
+    pointer-events:none;
+  }
+  body::before { background:#c4b5fd; top:-100px; left:-100px; }
+  body::after  { background:#93c5fd; bottom:-100px; right:-100px; }
+
+  .wrap { position:relative; z-index:1; max-width:1000px; margin:0 auto; }
+
+  header { text-align:center; margin-bottom:50px; }
+
+  .badge {
+    display:inline-block;
+    padding:6px 14px;
+    background:#fff;
+    border:1px solid #e2e6f0;
+    border-radius:100px;
+    font-size:0.75rem;
+    letter-spacing:1.5px;
+    color:#6b7280;
+    margin-bottom:18px;
+    font-weight:500;
+  }
+
+  h1 {
+    font-size:2.4rem;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    color:#0f172a;
+    margin-bottom:12px;
+  }
+  h1 span {
+    background:linear-gradient(90deg,#6366f1,#a855f7);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+
+  .sub {
+    font-size:0.95rem;
+    color:#64748b;
+    max-width:500px;
+    margin:0 auto;
+    line-height:1.6;
+  }
+
+  .grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+    gap:20px;
+  }
+
+  .card {
+    background:#fff;
+    border:1px solid #e8ecf5;
+    border-radius:20px;
+    padding:24px;
+    transition:0.3s;
+    position:relative;
+    overflow:hidden;
+  }
+  .card:hover {
+    transform:translateY(-3px);
+    box-shadow:0 12px 40px rgba(99,102,241,0.12);
+    border-color:#dbe1f5;
+  }
+
+  .card::before {
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height:3px;
+    background:linear-gradient(90deg, var(--c1), var(--c2));
+  }
+  .card.ifsc   { --c1:#6366f1; --c2:#8b5cf6; }
+  .card.vahan  { --c1:#f59e0b; --c2:#ef4444; }
+  .card.num    { --c1:#10b981; --c2:#06b6d4; }
+  .card.aadhar { --c1:#ec4899; --c2:#8b5cf6; }
+
+  .card-icon {
+    width:48px; height:48px;
+    border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.4rem;
+    margin-bottom:16px;
+  }
+  .ifsc   .card-icon { background:#eef0ff; }
+  .vahan  .card-icon { background:#fff4e6; }
+  .num    .card-icon { background:#e7f9f2; }
+  .aadhar .card-icon { background:#fdeaf4; }
+
+  .card-title { font-size:1.05rem; font-weight:600; color:#0f172a; margin-bottom:4px; }
+  .card-desc  { font-size:0.8rem; color:#94a3b8; margin-bottom:18px; line-height:1.5; }
+
+  .input-row { display:flex; gap:8px; margin-bottom:12px; }
+  .input-row input {
+    flex:1;
+    padding:11px 14px;
+    border:1px solid #e2e6f0;
+    border-radius:12px;
+    font-size:0.85rem;
+    font-family:inherit;
+    color:#0f172a;
+    outline:none;
+    transition:0.2s;
+    background:#f8fafc;
+    min-width:0;
+  }
+  .input-row input:focus {
+    border-color:#6366f1;
+    background:#fff;
+    box-shadow:0 0 0 4px rgba(99,102,241,0.1);
+  }
+  .input-row input::placeholder { color:#94a3b8; }
+
+  .btn-go {
+    padding:11px 18px;
+    background:#0f172a;
+    color:#fff;
+    border:none;
+    border-radius:12px;
+    font-size:0.8rem;
+    font-weight:600;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    transition:0.2s;
+    font-family:inherit;
+  }
+  .btn-go:hover { background:#1e293b; }
+  .btn-go:active { transform:scale(0.97); }
+  .btn-go:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .result {
+    background:#f8fafc;
+    border:1px solid #e8ecf5;
+    border-radius:12px;
+    padding:14px;
+    font-family:'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    font-size:0.72rem;
+    line-height:1.6;
+    color:#334155;
+    white-space:pre-wrap;
+    word-break:break-word;
+    max-height:340px;
+    overflow-y:auto;
+    display:none;
+    position:relative;
+    margin-top:8px;
+  }
+  .result pre {
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-family:inherit;
+    padding-right:36px;
+    color:#334155;
+  }
+
+  .copy-btn {
+    position:absolute;
+    top:8px; right:8px;
+    width:28px; height:28px;
+    background:#fff;
+    border:1px solid #e2e6f0;
+    border-radius:8px;
+    color:#64748b;
+    cursor:pointer;
+    font-size:0.75rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:0.2s;
+  }
+  .copy-btn:hover { background:#0f172a; color:#fff; border-color:#0f172a; }
+  .copy-btn.copied { background:#10b981; color:#fff; border-color:#10b981; }
+
+  .loader {
+    display:none;
+    padding:14px;
+    text-align:center;
+    font-size:0.78rem;
+    color:#6366f1;
+    letter-spacing:0.5px;
+  }
+  .loader::after {
+    content:"";
+    display:inline-block;
+    width:14px; height:14px;
+    border:2px solid #e0e7ff;
+    border-top-color:#6366f1;
+    border-radius:50%;
+    animation:spin 0.7s linear infinite;
+    margin-left:8px;
+    vertical-align:middle;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .error-msg {
+    padding:10px 14px;
+    background:#fef2f2;
+    border:1px solid #fecaca;
+    border-radius:10px;
+    color:#dc2626;
+    font-size:0.75rem;
+    margin-top:8px;
+    display:none;
+  }
+
+  footer {
+    text-align:center;
+    margin-top:60px;
+    font-size:0.75rem;
+    color:#94a3b8;
+    letter-spacing:0.5px;
+  }
+
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+  @media(max-width:520px) {
+    h1 { font-size:1.8rem; }
+    .grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="badge">✦ 4 ENDPOINTS LIVE</div>
+    <h1>OSINT <span>Collection</span></h1>
+    <p class="sub">𝙤𝙨𝙞𝙣𝙩 𝙨𝙞𝙩𝙚 𝙥𝙤𝙬𝙚𝙧⚡ 𝙗𝙮 𝙎𝘼𝙃𝙄𝘽 𝙎𝘼𝙄𝙁.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- IFSC -->
+    <div class="card ifsc">
+      <div class="card-icon">🏦</div>
+      <div class="card-title">IFSC Lookup</div>
+      <div class="card-desc">Bank branch, MICR, NEFT/RTGS/UPI rails</div>
+      <div class="input-row">
+        <input id="in-ifsc" placeholder="SBIN0000001" />
+        <button class="btn-go" id="btn-ifsc" onclick="runIfsc()">GO</button>
+      </div>
+      <div class="loader" id="ld-ifsc">Fetching</div>
+      <div class="error-msg" id="er-ifsc"></div>
+      <div class="result" id="rs-ifsc">
+        <button class="copy-btn" onclick="copyRes('ifsc', this)">⧉</button>
+        <pre id="tx-ifsc"></pre>
+      </div>
+    </div>
+
+    <!-- VAHAN -->
+    <div class="card vahan">
+      <div class="card-icon">🚘</div>
+      <div class="card-title">Vahan RC Lookup</div>
+      <div class="card-desc">Vehicle registration & RC details</div>
+      <div class="input-row">
+        <input id="in-vahan" placeholder="UP54AM1165" />
+        <button class="btn-go" id="btn-vahan" onclick="runVahan()">GO</button>
+      </div>
+      <div class="loader" id="ld-vahan">Fetching</div>
+      <div class="error-msg" id="er-vahan"></div>
+      <div class="result" id="rs-vahan">
+        <button class="copy-btn" onclick="copyRes('vahan', this)">⧉</button>
+        <pre id="tx-vahan"></pre>
+      </div>
+    </div>
+
+    <!-- NUMBER -->
+    <div class="card num">
+      <div class="card-icon">📱</div>
+      <div class="card-title">Number Info</div>
+      <div class="card-desc">Mobile number intelligence lookup</div>
+      <div class="input-row">
+        <input id="in-num" placeholder="8814625901" maxlength="10" inputmode="numeric" />
+        <button class="btn-go" id="btn-num" onclick="runNum()">GO</button>
+      </div>
+      <div class="loader" id="ld-num">Fetching</div>
+      <div class="error-msg" id="er-num"></div>
+      <div class="result" id="rs-num">
+        <button class="copy-btn" onclick="copyRes('num', this)">⧉</button>
+        <pre id="tx-num"></pre>
+      </div>
+    </div>
+
+    <!-- AADHAR -->
+    <div class="card aadhar">
+      <div class="card-icon">🪪</div>
+      <div class="card-title">Aadhaar Lookup</div>
+      <div class="card-desc">Aadhaar details & linked info</div>
+      <div class="input-row">
+        <input id="in-aadhar" placeholder="123412341234" maxlength="12" inputmode="numeric" />
+        <button class="btn-go" id="btn-aadhar" onclick="runAadhar()">GO</button>
+      </div>
+      <div class="loader" id="ld-aadhar">Fetching</div>
+      <div class="error-msg" id="er-aadhar"></div>
+      <div class="result" id="rs-aadhar">
+        <button class="copy-btn" onclick="copyRes('aadhar', this)">⧉</button>
+        <pre id="tx-aadhar"></pre>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    OSINT Collection • POWER BY SAHIB SAIF
+  </footer>
+
+</div>
+
+<script>
+// ================== API URLs ==================
+const API_IFSC   = "https://priyanshuexploits.vercel.app/api/ifsc/";
+const API_VAHAN  = "https://priyanshu-pied-xi.vercel.app/api/vahan?rc=";
+const API_NUM    = "https://thanksfor100user.vercel.app/num?number=";
+const API_AADHAR = "https://aadhar-xi.vercel.app/api/lookup?id=";
+
+// ================== UI helpers ==================
+function showLoader(id) {
+  document.getElementById("ld-" + id).style.display = "block";
+  document.getElementById("rs-" + id).style.display = "none";
+  document.getElementById("er-" + id).style.display = "none";
+  document.getElementById("btn-" + id).disabled = true;
+}
+function hideLoader(id) {
+  document.getElementById("ld-" + id).style.display = "none";
+  document.getElementById("btn-" + id).disabled = false;
+}
+function showError(id, msg) {
+  const el = document.getElementById("er-" + id);
+  el.textContent = "⚠ " + msg;
+  el.style.display = "block";
+}
+function showResult(id, text) {
+  const el = document.getElementById("rs-" + id);
+  const pre = document.getElementById("tx-" + id);
+  pre.textContent = text;
+  el.style.display = "block";
+}
+
+// ================== Universal fetch ==================
+async function fetchApi(url, id) {
+  showLoader(id);
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Accept": "application/json, text/plain, */*" }
+    });
+
+    if (!res.ok) {
+      showError(id, "HTTP " + res.status + " — " + res.statusText);
+      hideLoader(id);
+      return;
+    }
+
+    const text = await res.text();
+    let output;
+
+    // Try JSON first
+    try {
+      const json = JSON.parse(text);
+      output = JSON.stringify(json, null, 2);
+    } catch (_) {
+      // Not JSON — use raw text
+      output = text;
+    }
+
+    if (!output || output.trim() === "" || output === "{}" || output === "[]") {
+      showError(id, "Koi data nahi mila");
+      hideLoader(id);
+      return;
+    }
+
+    showResult(id, output);
+  } catch (e) {
+    showError(id, "Network error: " + e.message);
+  } finally {
+    hideLoader(id);
+  }
+}
+
+// ================== Actions ==================
+function runIfsc() {
+  const v = document.getElementById("in-ifsc").value.trim().toUpperCase();
+  if (!v) { showError("ifsc", "IFSC code daalo"); return; }
+  fetchApi(API_IFSC + encodeURIComponent(v) + "?format=text", "ifsc");
+}
+
+function runVahan() {
+  const v = document.getElementById("in-vahan").value.trim().toUpperCase().replace(/\s/g,"");
+  if (!v) { showError("vahan", "RC number daalo"); return; }
+  fetchApi(API_VAHAN + encodeURIComponent(v) + "&format=card", "vahan");
+}
+
+function runNum() {
+  const v = document.getElementById("in-num").value.trim().replace(/\D/g,"");
+  if (!v) { showError("num", "Number daalo"); return; }
+  if (v.length < 10) { showError("num", "10 digit ka number daalo"); return; }
+  fetchApi(API_NUM + encodeURIComponent(v), "num");
+}
+
+function runAadhar() {
+  const v = document.getElementById("in-aadhar").value.trim().replace(/\D/g,"");
+  if (!v) { showError("aadhar", "Aadhaar number daalo"); return; }
+  if (v.length !== 12) { showError("aadhar", "Aadhaar 12 digit ka hona chahiye"); return; }
+  fetchApi(API_AADHAR + encodeURIComponent(v) + "&format=card", "aadhar");
+}
+
+// ================== Copy ==================
+function copyRes(id, btn) {
+  const text = document.getElementById("tx-" + id).textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add("copied");
+    btn.textContent = "✓";
+    setTimeout(() => {
+      btn.classList.remove("copied");
+      btn.textContent = "⧉";
+    }, 1400);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  });
+}
+
+// ================== Enter key ==================
+document.getElementById("in-ifsc").addEventListener("keypress", e => { if (e.key === "Enter") runIfsc(); });
+document.getElementById("in-vahan").addEventListener("keypress", e => { if (e.key === "Enter") runVahan(); });
+document.getElementById("in-num").addEventListener("keypress", e => { if (e.key === "Enter") runNum(); });
+document.getElementById("in-aadhar").addEventListener("keypress", e => { if (e.key === "Enter") runAadhar(); });
+</script>
+</body>
+        </html>
